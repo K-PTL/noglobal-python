@@ -1,8 +1,10 @@
 from functools import partial
 import inspect
-from typing import List, Dict, Optional, Callable, Any, FunctionType
+from typing import List, Dict, Optional, Callable, Any
+from types import FunctionType
 
 # Function prototype
+# this is not necessary, just my pray for.
 global noglobal
 
 
@@ -68,9 +70,54 @@ def no_global_variable_decorator(globals_: Optional[Dict[str, Any]] = None):
         partialled_globals_ = partialled(excepts=excepts)
         bound_func = bind_globals(globals_=partialled_globals_)
         return bound_func
-
     return _no_global_variable
 
 
 # substance of noglobal function
-noglobal = no_global_variable_decorator(globals_=globals())
+class noglobal:
+    def __init__(self, excepts=None):
+        self.excepts = excepts
+    
+    def __call__(self, _func):
+        return no_global_variable_decorator(
+            globals_=_func.__globals__
+          )(excepts=self.excepts # arg of _no_global_variable
+          )(func=_func)          # arg of _bind_globals 
+
+
+if __name__ == "__main__":
+    # from noglobal import noglobal
+    a = "hoge"
+    
+    def run(f):
+        try:
+            f()
+        except NameError as ne:
+            print(ne)
+        print()
+
+    @noglobal()
+    def func_usual():
+        print("This is func_usual")
+        print(a)
+
+    import numpy as np
+    @noglobal()
+    def func_nest():
+        print("This is func_nest")
+        print(np.arange(0,10))
+        print(a)
+        run(func_usual())
+
+    @noglobal(excepts=["a"])
+    def func_use_excepts():
+        print("This is func_use_excepts")
+        print(np.arange(0,10))
+        print(a)
+        run(func_nest()) # Raised NameError because func_nest
+                         # does not allow to use global variable; a.
+    
+    run(func_usual)
+    run(func_nest)
+    run(func_use_excepts)
+# end if
